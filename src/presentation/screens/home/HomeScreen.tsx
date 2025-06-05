@@ -1,7 +1,7 @@
 import { FlatList, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { getPokemons } from '../../../actions/pokemons';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { PokeballBg } from '../../components/ui/PokeballBg';
 import { globalTheme } from '../../../config/theme/global-theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,18 +9,35 @@ import { PokemonCard } from '../../components/pokemons/PokemonCard';
 
 export const HomeScreen = () => {
 
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
 
-  const { isLoading, data: pokemons = [] } = useQuery( {
+  const queryCliente = useQueryClient();
+
+  // esta es la forma tradicional de una peticion http
+  /* const { isLoading, data: pokemons = [] } = useQuery( {
     queryKey: [ 'pokemons' ],
     queryFn: () => getPokemons( 0 ),
+  } ); */
+
+  const { isLoading, data, fetchNextPage } = useInfiniteQuery( {
+    queryKey: [ 'pokemons', 'infinite' ],
+    initialPageParam: 0,
+    queryFn: async ( params ) => {
+      const pokemons = await getPokemons( params.pageParam );
+      pokemons.forEach( pokemon => {
+        queryCliente.setQueryData( [ 'pokemon', pokemon.id ], pokemon );
+      } );
+      return pokemons;
+    },
+    getNextPageParam: ( lastPage, pages ) => pages.length,
+    staleTime: 1000 * 60 * 60,
   } );
 
   return (
     <View style={ globalTheme.globalMargin }>
       <PokeballBg style={ styles.imgPosition } />
       <FlatList
-        data={ pokemons }
+        data={ data?.pages.flat() ?? [] } // flat sirve para aplanar los datos de la query
         keyExtractor={ ( item, index ) => item.id.toString() + index.toString() }
         numColumns={ 2 }
         style={ { paddingTop: top + 20 } }
@@ -28,6 +45,9 @@ export const HomeScreen = () => {
           <Text variant="displayMedium">Pokédex</Text>
         ) }
         renderItem={ ( { item: pokemon } ) => <PokemonCard pokemon={ pokemon } /> }
+        onEndReachedThreshold={ 0.6 } // Nos acercamos a 60% de la lista
+        onEndReached={ () => fetchNextPage() } // Cuando llegamos al final de la lista, llamamos a fetchNextPage
+        showsHorizontalScrollIndicator={ false } // No mostramos el scroll horizontal
       />
     </View>
   );
