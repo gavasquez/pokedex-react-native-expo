@@ -14,8 +14,8 @@ export const getPokemonsNamesWithId = async () => {
 };
 
 /* 
-{
-  id: 1,
-  name: 'bulbasaur',
-},
+  {
+    id: 1,
+    name: 'bulbasaur',
+  },
 */
